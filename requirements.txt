@@ -1,6 +1,1 @@
-# Vercel serverless API only needs stdlib — no external packages required.
-# The api/predict.py uses only: os, re, json, urllib (all built into Python)
-#
-# Heavy ML packages (transformers, torch, scikit-learn, datasets, etc.)
-# are for local notebook use. Install them locally with:
-#   pip install transformers torch scikit-learn datasets huggingface-hub plotly pydantic tqdm
+

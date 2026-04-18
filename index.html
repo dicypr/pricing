@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Price Is Right — AI Price Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #f5c842;
+      --gold-dim: #c9a020;
+      --bg: #0d0d0f;
+      --surface: #141418;
+      --surface2: #1c1c22;
+      --border: #2a2a35;
+      --text: #f0eee8;
+      --muted: #888;
+      --red: #e84040;
+      --green: #3ec97a;
+      --orange: #f5834a;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+    }
+
+    /* Noise overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.6;
+    }
+
+    header {
+      padding: 2.5rem 2rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 2px;
+      background: var(--gold);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 0.25rem 0.8rem;
+      border-radius: 2px;
+      margin-bottom: 1.2rem;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3.5rem, 10vw, 7rem);
+      letter-spacing: 0.03em;
+      line-height: 0.9;
+      animation: fadeDown 0.6s 0.1s ease both;
+    }
+
+    h1 span { color: var(--gold); }
+
+    .subtitle {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      animation: fadeDown 0.6s 0.2s ease both;
+    }
+
+    /* Results bar */
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      animation: fadeDown 0.6s 0.3s ease both;
+      scrollbar-width: none;
+    }
+
+    .leaderboard-row::-webkit-scrollbar { display: none; }
+
+    .lb-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .model-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .model-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .chip-ft { background: rgba(232,64,64,0.15); color: #f07070; }
+    .chip-ft .dot { background: var(--red); }
+    .chip-frontier { background: rgba(100,100,220,0.15); color: #aab; }
+    .chip-frontier .dot { background: #8888ee; }
+    .chip-nn { background: rgba(245,131,74,0.15); color: var(--orange); }
+    .chip-nn .dot { background: var(--orange); }
+
+    /* Main layout */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      animation: fadeUp 0.7s 0.35s ease both;
+    }
+
+    @media (max-width: 700px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.8rem;
+    }
+
+    .card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.05em;
+      color: var(--gold);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 300;
+      padding: 0.9rem 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.6;
+    }
+
+    textarea:focus { border-color: var(--gold-dim); }
+
+    .btn {
+      margin-top: 1.2rem;
+      width: 100%;
+      padding: 0.85rem;
+      background: var(--gold);
+      color: #0d0d0f;
+      border: none;
+      border-radius: 6px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .examples {
+      margin-top: 1.2rem;
+    }
+
+    .examples label { margin-bottom: 0.6rem; }
+
+    .ex-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .ex-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 5px;
+      padding: 0.5rem 0.7rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, color 0.2s;
+      font-family: 'DM Sans', sans-serif;
+      line-height: 1.4;
+    }
+
+    .ex-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+
+    /* Result panel */
+    .result-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .price-display {
+      text-align: center;
+      padding: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .price-display::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(245,200,66,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .price-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .price-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 4.5rem;
+      line-height: 1;
+      color: var(--gold);
+      transition: all 0.3s ease;
+    }
+
+    .price-value.loading {
+      animation: pulse 1s infinite;
+    }
+
+    .confidence-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.8rem;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+      border-radius: 2px;
+      width: 0%;
+      transition: width 1s ease;
+    }
+
+    /* Chart */
+    .chart-wrap {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+    }
+
+    .chart-title {
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .bar-chart { display: flex; flex-direction: column; gap: 0.55rem; }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 55px;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .bar-name {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-name.highlight { color: var(--gold); font-weight: 500; }
+
+    .bar-track {
+      height: 10px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      width: 0%;
+    }
+
+    .bar-val {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    /* Info cards */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+    }
+
+    .info-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+
+    .info-card .ic-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+
+    .info-card .ic-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .info-card .ic-val.gold { color: var(--gold); }
+    .info-card .ic-val.green { color: var(--green); }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--gold-dim); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+
+    .pop { animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Project 7 · Capstone Part B · LLM Fine-Tuning</div>
+  <h1>The Price<br><span>Is Right</span></h1>
+  <p class="subtitle">Fine-tuned Llama 3.2 vs Frontier Models — Product Price Prediction</p>
+</header>
+
+<div class="leaderboard-row">
+  <span class="lb-label">Model Results ↗</span>
+  <span class="model-chip chip-ft"><span class="dot"></span>Fine-tuned Full: $39.85</span>
+  <span class="model-chip chip-ft"><span class="dot"></span>Fine-tuned Lite: $65.40</span>
+  <span class="model-chip chip-frontier"><span class="dot"></span>GPT-5.1: $44.74</span>
+  <span class="model-chip chip-frontier"><span class="dot"></span>Claude Sonnet: $47.10</span>
+  <span class="model-chip chip-frontier"><span class="dot"></span>Gemini 3 Pro: $50.54</span>
+  <span class="model-chip chip-nn"><span class="dot"></span>Deep NN: $46.49</span>
+  <span class="model-chip chip-nn"><span class="dot"></span>Neural Net: $63.97</span>
+</div>
+
+<main>
+  <!-- Left: Input -->
+  <div>
+    <div class="card">
+      <div class="card-title">⬡ Describe a Product</div>
+      <label for="desc">Product description</label>
+      <textarea id="desc" placeholder="Paste a product title and description here…"></textarea>
+      <button class="btn" onclick="predict()" id="predictBtn">Predict Price →</button>
+    </div>
+
+    <div class="card examples" style="margin-top:1.2rem;">
+      <div class="card-title" style="font-size:1rem; margin-bottom:0.8rem;">Quick Examples</div>
+      <div class="ex-grid" id="exGrid"></div>
+    </div>
+  </div>
+
+  <!-- Right: Output -->
+  <div class="result-area">
+    <div class="card">
+      <div class="card-title">⬡ Estimated Price</div>
+
+      <div class="price-display" id="priceDisplay">
+        <div class="price-label">Awaiting prediction</div>
+        <div class="price-value" id="priceVal">—</div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="confFill"></div>
+        </div>
+      </div>
+
+      <div class="info-grid" style="margin-top:1rem;">
+        <div class="info-card">
+          <div class="ic-label">Model Used</div>
+          <div class="ic-val" id="modelUsed" style="font-size:1rem; font-family:'DM Sans'; padding-top:2px;">—</div>
+        </div>
+        <div class="info-card">
+          <div class="ic-label">Predictions Made</div>
+          <div class="ic-val gold" id="predCount">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card chart-wrap">
+      <div class="chart-title">Model Error Comparison (Lower = Better, $USD avg abs error)</div>
+      <div class="bar-chart" id="barChart"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>Project 7 · Fine-tuning Llama 3.2 with QLoRA · Dataset: Amazon Products · 
+  <a href="https://github.com/your-username/pricer" target="_blank">GitHub ↗</a> · 
+  <a href="https://huggingface.co/ed-donner/items_prompts_full" target="_blank">Dataset ↗</a>
+  </p>
+</footer>
+
+<script>
+  const EXAMPLES = [
+    { label: "Wireless Headphones", text: "Sony WH-1000XM5 Wireless Noise Canceling Headphones with Auto Noise Canceling Optimizer, Crystal Clear Hands-Free Calling, and Alexa Voice Control, Black" },
+    { label: "Kitchen Blender", text: "Vitamix E310 Explorian Blender, Professional-Grade, 48 oz. Container, Black - 65542" },
+    { label: "Running Shoes", text: "Nike Men's Air Zoom Pegasus 40 Running Shoes, Black/White/Volt, Size 11, Lightweight Cushioning for Long Distance Running" },
+    { label: "Laptop Stand", text: "Nulaxy Laptop Stand, Ergonomic Adjustable Laptop Riser Notebook Stand Holder for Desk, Compatible with MacBook Pro Air, Dell XPS, HP, Lenovo" },
+    { label: "Coffee Maker", text: "Keurig K-Classic Coffee Maker K-Cup Pod, Single Serve, Programmable, 6 to 10 oz. Brew Sizes, Black" },
+    { label: "Mechanical Keyboard", text: "Keychron K2 Wireless Mechanical Keyboard (Version 2) RGB Backlit, Bluetooth 5.1, Compact 75% Layout 84 Keys, Aluminum Frame for Mac Windows, Gateron G Pro Brown Switch" },
+  ];
+
+  const BAR_DATA = [
+    { name: "Fine-tuned Full",   val: 39.85, color: "#e84040", highlight: true },
+    { name: "GPT 5.1",           val: 44.74, color: "#8888ee" },
+    { name: "Deep Neural Net",   val: 46.49, color: "#f5834a" },
+    { name: "Claude Sonnet",     val: 47.10, color: "#8888ee" },
+    { name: "Gemini 3 Pro",      val: 50.54, color: "#8888ee" },
+    { name: "Grok 4.1 Fast",     val: 57.62, color: "#8888ee" },
+    { name: "GPT 4.1 Nano",      val: 62.51, color: "#8888ee" },
+    { name: "Neural Network",    val: 63.97, color: "#f5834a" },
+    { name: "Fine-tuned Lite",   val: 65.40, color: "#e84040" },
+    { name: "XGBoost",           val: 68.23, color: "#666" },
+    { name: "GPT 4.1 (FT)",      val: 75.91, color: "#87ceeb" },
+    { name: "NLP + LR",          val: 76.81, color: "#666" },
+    { name: "Human (Ed)",        val: 87.62, color: "#aaa" },
+    { name: "Linear Regression", val: 101.56, color: "#555" },
+    { name: "Base Llama 4-bit",  val: 110.72, color: "#aa3333" },
+  ];
+
+  let predCount = 0;
+
+  // Build examples
+  const exGrid = document.getElementById("exGrid");
+  EXAMPLES.forEach(ex => {
+    const btn = document.createElement("button");
+    btn.className = "ex-btn";
+    btn.textContent = ex.label;
+    btn.onclick = () => { document.getElementById("desc").value = ex.text; };
+    exGrid.appendChild(btn);
+  });
+
+  // Build bar chart
+  const maxVal = Math.max(...BAR_DATA.map(d => d.val));
+  const bc = document.getElementById("barChart");
+  BAR_DATA.forEach(d => {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <div class="bar-name${d.highlight ? ' highlight' : ''}">${d.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="background:${d.color}" data-pct="${(d.val/maxVal*100).toFixed(1)}"></div></div>
+      <div class="bar-val">$${d.val}</div>
+    `;
+    bc.appendChild(row);
+  });
+
+  // Animate bars on load
+  setTimeout(() => {
+    document.querySelectorAll(".bar-fill").forEach(el => {
+      el.style.width = el.dataset.pct + "%";
+    });
+  }, 500);
+
+  async function predict() {
+    const desc = document.getElementById("desc").value.trim();
+    if (!desc) return;
+
+    const btn = document.getElementById("predictBtn");
+    const priceVal = document.getElementById("priceVal");
+    const confFill = document.getElementById("confFill");
+    const modelUsed = document.getElementById("modelUsed");
+
+    btn.disabled = true;
+    priceVal.className = "price-value loading";
+    priceVal.textContent = "...";
+    confFill.style.width = "0%";
+    modelUsed.textContent = "Calling API…";
+
+    try {
+      const res = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: desc }),
+      });
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      const price = data.price;
+      priceVal.className = "price-value pop";
+      priceVal.textContent = "$" + price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      // Confidence fill: invert error (rough proxy)
+      const confPct = Math.min(95, Math.max(20, 100 - (price > 500 ? 30 : 15)));
+      setTimeout(() => { confFill.style.width = confPct + "%"; }, 100);
+
+      modelUsed.textContent = "Llama 3.3 70B (Groq)";
+      predCount++;
+      document.getElementById("predCount").textContent = predCount;
+
+    } catch (err) {
+      priceVal.className = "price-value";
+      priceVal.textContent = "Error";
+      modelUsed.textContent = err.message || "API error";
+    }
+
+    btn.disabled = false;
+  }
+
+  // Allow enter key in textarea (Shift+Enter = newline, Enter = submit)
+  document.getElementById("desc").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); predict(); }
+  });
+</script>
+</body>
+</html>

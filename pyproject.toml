@@ -3,3 +3,6 @@ name = "pricer"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = []
+
+[tool.vercel]
+# This is a library package, not a web app

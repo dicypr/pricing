@@ -15,7 +15,7 @@ A fine-tuned **Llama 3.2 3B** model that costs pennies to run **outperforms ever
 | Rank | Model | Avg Absolute Error | Type |
 |------|-------|--------------------|------|
 | 🥇 1 | **Fine-tuned Llama 3.2 (Full)** | **$39.85** | Fine-tuned OSS |
-| 2 | GPT-5.1 | $44.74 | Frontier |
+| 2 | GPT-5.1 | $44.74 | Frontier |....
 | 3 | Deep Neural Network | $46.49 | Custom NN |
 | 4 | Claude 4.5 Sonnet | $47.10 | Frontier |
 | 5 | Gemini 3 Pro | $50.54 | Frontier |
